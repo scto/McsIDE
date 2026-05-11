@@ -33,7 +33,7 @@ load_secrets() {
 }
 
 # ==========================================
-# START-LOGIK & KONFIGURATION
+# START-LOGIK
 # ==========================================
 run_aider() {
     local model=$1
@@ -45,8 +45,6 @@ run_aider() {
     if [ -z "$mode_flag" ]; then
         aider --model "$model"
     else
-        # mode_flag wird absichtlich nicht in Anführungszeichen gesetzt, 
-        # damit "--architect --subtree-only" als zwei Argumente erkannt werden
         aider --model "$model" $mode_flag
     fi
     
@@ -58,71 +56,26 @@ choose_run_mode() {
     local model=$1
     local default_mode=$2
     
-    # Setze den anfänglichen Modus basierend auf der Empfehlung des Skripts
+    echo -e "\n${W}Wie möchtest du starten?${NC}"
+    echo -e "1) Standard (Normales Coding)"
     if [ "$default_mode" == "--architect" ]; then
-        CHAT_MODE_IDX=2
-    else
-        CHAT_MODE_IDX=0
+        echo -e "2) Architect Mode (Besser für komplexe Architektur/Refactoring)"
     fi
+    echo -e "0) Abbrechen"
+    read -p "Wahl: " mode_choice
     
-    while true; do
-        clear
-        echo -e "${C}======================================================${NC}"
-        echo -e "${W}${B}         START-KONFIGURATION                       ${NC}"
-        echo -e "${C}======================================================${NC}"
-        echo -e "Modell: ${G}$model${NC}"
-        echo -e "------------------------------------------------------"
-        
-        local current_mode="${CHAT_MODES[$CHAT_MODE_IDX]}"
-        local current_mode_desc="${CHAT_MODE_DESCS[$CHAT_MODE_IDX]}"
-        
-        local subtree_status="${R}OFF${NC}"
-        if [ "$SUBTREE_MODE" = true ]; then
-            subtree_status="${G}ON${NC}"
-        fi
-
-        echo -e "${G}1) Starten${NC}"
-        echo -e "${C}2) Modus wechseln${NC} : ${W}$current_mode${NC} (${Y}$current_mode_desc${NC})"
-        echo -e "${M}3) Sub-Tree Only${NC}  : $subtree_status"
-        echo -e "------------------------------------------------------"
-        echo -e "${R}0) Abbrechen${NC}"
-        
-        read -p "Wahl: " config_choice
-        
-        case $config_choice in
-            1)
-                # Flag-String dynamisch zusammenbauen
-                local flags=""
-                if [ "$current_mode" != "auto" ]; then
-                    flags="--$current_mode"
-                fi
-                if [ "$SUBTREE_MODE" = true ]; then
-                    flags="$flags --subtree-only"
-                fi
-                
-                run_aider "$model" "$flags"
-                return
-                ;;
-            2)
-                # Modus durchwechseln (Cycle)
-                CHAT_MODE_IDX=$(( (CHAT_MODE_IDX + 1) % ${#CHAT_MODES[@]} ))
-                ;;
-            3)
-                # Sub-Tree Toggle
-                if [ "$SUBTREE_MODE" = true ]; then
-                    SUBTREE_MODE=false
-                else
-                    SUBTREE_MODE=true
-                fi
-                ;;
-            0)
-                return
-                ;;
-            *)
-                echo -e "${R}Ungültige Eingabe.${NC}"; sleep 1
-                ;;
-        esac
-    done
+    case $mode_choice in
+        1) run_aider "$model" "" ;;
+        2) 
+            if [ "$default_mode" == "--architect" ]; then
+                run_aider "$model" "--architect"
+            else
+                echo -e "${R}Ungültige Wahl.${NC}"; sleep 1
+            fi
+            ;;
+        0) return ;;
+        *) echo -e "${R}Ungültige Eingabe.${NC}"; sleep 1 ;;
+    esac
 }
 
 # ==========================================
@@ -143,8 +96,7 @@ list_aider_models() {
         cleaned=$(echo "$cleaned" | grep -i '^gemini/gemini')
     fi
     
-    # ABSTEIGEND sortieren (-rV)
-    echo "$cleaned" | sort -rV | uniq | while IFS= read -r line; do
+    echo "$cleaned" | sort -V | uniq | while IFS= read -r line; do
         if [ -n "$line" ]; then
             echo -e " - ${W}${line}${NC}"
         fi
@@ -247,25 +199,14 @@ show_dynamic_menu() {
         echo -e "${C}======================================================${NC}"
         echo -e "${W}${B}         ${title}                            ${NC}"
         echo -e "${C}======================================================${NC}"
-        echo -e "${Y}Frage API ab, säubere Liste und sortiere Versionen absteigend...${NC}"
+        echo -e "${Y}Frage API ab, säubere Liste und sortiere Versionen...${NC}"
 
         source "$VENV_PATH_VAL/bin/activate" 2>/dev/null
         
         local raw=""
         if [ "$search_q" == "openai" ]; then
+            # OpenAI hat verschiedene Präfixe in litellm, wir suchen explizit nach den bekannten
             raw=$( (aider --models "gpt"; aider --models "o1"; aider --models "o3") 2>/dev/null )
-            # INJEKTION: Garantiert, dass Standard-Modelle nie fehlen
-            raw+=$'\ngpt-4o\ngpt-4o-mini\no1\no3-mini\no1-preview\no1-mini'
-        elif [ "$search_q" == "gemini" ]; then
-            raw=$(aider --models "$search_q" 2>/dev/null)
-            # INJEKTION: Garantiert, dass 1.5, 2.0, 2.5 etc. IMMER in der Liste sind
-            raw+=$'\ngemini/gemini-1.5-flash-002\ngemini/gemini-1.5-flash-8b\ngemini/gemini-1.5-pro-002\ngemini/gemini-2.0-flash\ngemini/gemini-2.0-flash-thinking-exp-01-21\ngemini/gemini-2.0-pro-exp-02-05\ngemini/gemini-2.5-flash\ngemini/gemini-2.5-pro\ngemini/gemini-3.0-flash\ngemini/gemini-3.1-flash'
-        elif [ "$search_q" == "claude" ]; then
-            raw=$(aider --models "$search_q" 2>/dev/null)
-            raw+=$'\nclaude-3-7-sonnet-20250219\nclaude-3-5-sonnet-20241022\nclaude-3-5-haiku-20241022\nclaude-3-opus-20240229'
-        elif [ "$search_q" == "deepseek" ]; then
-            raw=$(aider --models "$search_q" 2>/dev/null)
-            raw+=$'\ndeepseek/deepseek-reasoner\ndeepseek/deepseek-chat\ndeepseek/deepseek-coder'
         else
             raw=$(aider --models "$search_q" 2>/dev/null)
         fi
@@ -279,9 +220,8 @@ show_dynamic_menu() {
             cleaned=$(echo "$cleaned" | grep -iE '^gemini/gemini')
         fi
         
-        # 3. Anwenden des übergebenen Filters (z.B. "flash" oder "pro") 
-        #    UND saubere Version-Sortierung ABSTEIGEND (-rV), Duplikate entfernen (uniq)
-        local parsed_models=$(echo "$cleaned" | grep -iE "$filter_re" | sort -rV | uniq)
+        # 3. Anwenden des übergebenen Filters (z.B. "flash" oder "pro") und saubere Version-Sortierung (-V)
+        local parsed_models=$(echo "$cleaned" | grep -iE "$filter_re" | sort -V | uniq)
         
         local models=()
         while IFS= read -r line; do
