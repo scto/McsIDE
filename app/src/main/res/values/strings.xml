@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ McsIDE - A powerful IDE for Android development.
+  -->
+<resources>
+    <string name="app_name">McsIDE</string>
+
+    <!-- General -->
+    <string name="action_cancel">Cancel</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_save">Save</string>
+    <string name="action_confirm">Confirm</string>
+    <string name="action_back">Back</string>
+    <string name="action_settings">Settings</string>
+
+    <!-- WelcomeScreen Strings -->
+    <string name="welcome_intro_subtitle">Building the future on Android</string>
+    <string name="welcome_permissions_title">Required Permissions</string>
+    <string name="welcome_permissions_desc"> McsIDE requires storage access to manage projects and install apps.</string>
+    <string name="welcome_perm_storage_title">File Access</string>
+    <string name="welcome_perm_storage_desc">Important for project files</string>
+    <string name="welcome_perm_install_title">App Installation</string>
+    <string name="welcome_perm_install_desc">Allows testing of created APKs</string>
+    <string name="welcome_theme_title">Design &amp; Style</string>
+    <string name="welcome_btn_back">Back</string>
+    <string name="welcome_btn_next">Next</string>
+    <string name="welcome_btn_finish">Finish</string>
+
+    <!-- WorkspaceSelectionScreen Strings -->
+    <string name="ws_select_title">Select Workspace</string>
+    <string name="ws_desc">All project files will be stored in this directory.</string>
+    <string name="ws_recommended">Use App Private Directory (Recommended)</string>
+    <string name="ws_change_dir">Change Directory</string>
+    <string name="ws_current">Current:</string>
+    <string name="ws_confirm_continue">Confirm and Continue</string>
+
+    <!-- ProjectListScreen Strings -->
+    <string name="project_list_title">Web Projects</string>
+    <string name="project_search_placeholder">Search projects...</string>
+    <string name="project_no_match">No matching projects found</string>
+    <string name="project_no_projects">No projects found</string>
+    <string name="project_search_history">Search History</string>
+    <string name="project_clear_history">Clear History</string>
+    <string name="project_no_history">No search history</string>
+    <string name="project_delete_title">Delete Project</string>
+    <string name="project_delete_msg">Are you sure you want to delete \"%1$s\"? This action cannot be undone.</string>
+    <string name="project_deleted_msg">Project deleted</string>
+    <string name="project_delete_fail">Delete failed, please check permissions</string>
+    <string name="project_pin">Pin Project</string>
+    <string name="project_unpin">Unpin Project</string>
+    <string name="project_sort_name_asc">Name (A-Z)</string>
+    <string name="project_sort_name_desc">Name (Z-A)</string>
+    <string name="project_sort_date_newest">Modified (Newest)</string>
+    <string name="project_sort_date_oldest">Modified (Oldest)</string>
+
+    <!-- NewProjectScreen Strings -->
+    <string name="new_project_title">New Project</string>
+    <string name="new_project_type">Project Type</string>
+    <string name="new_project_name">Project Name</string>
+    <string name="new_project_index_php">Create index.php</string>
+    <string name="new_project_url">Target URL</string>
+    <string name="new_project_config">Config</string>
+    <string name="new_project_source">Source</string>
+    <string name="new_project_create_btn">Create Now</string>
+    <string name="new_project_err_name">Please enter project name</string>
+    <string name="new_project_err_json">JSON syntax error</string>
+    <string name="new_project_err_keystore">Please select Keystore file</string>
+    <string name="new_project_err_exists">Project already exists</string>
+    <string name="new_project_success">Created successfully: %1$s</string>
+    <string name="new_project_json_error">JSON Error: %1$s</string>
+    <string name="new_project_json_synced">Configuration synced</string>
+
+    <!-- ProjectConfigScreen Strings -->
+    <string name="config_title">Project Configuration</string>
+    <string name="config_section_app">App Info</string>
+    <string name="config_app_name">App Name</string>
+    <string name="config_package">Package</string>
+    <string name="config_ver_name">Ver Name</string>
+    <string name="config_ver_code">Ver Code</string>
+    <string name="config_target_url">Target URL</string>
+    <string name="config_icon">App Icon</string>
+    <string name="config_encryption">Resource Encryption (HTML/JS/CSS)</string>
+    <string name="config_section_display">Display &amp; Theme</string>
+    <string name="config_orientation">Orientation</string>
+    <string name="config_fullscreen">Fullscreen Mode</string>
+    <string name="config_zoom">Webview Zoom</string>
+    <string name="config_status_color">Status Bar Color (#Hex)</string>
+    <string name="config_status_dark_text">Dark Status Bar Text</string>
+    <string name="config_section_signing">Signing</string>
+    <string name="config_enable_signing">Enable Custom Signing</string>
+    <string name="config_keystore_file">Keystore File</string>
+    <string name="config_save_fail">Save failed: %1$s</string>
+
+    <!-- Theme & Appearance -->
+    <string name="theme_mode_system">System</string>
+    <string name="theme_mode_light">Light</string>
+    <string name="theme_mode_dark">Dark</string>
+    <string name="theme_monet_label">Dynamic Colors (Monet)</string>
+    <string name="theme_custom_label">Custom</string>
+
+    <!-- Settings & About -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_about_title">About McsIDE</string>
+    <string name="settings_log_enabled">Enable Logging</string>
+    <string name="settings_workspace_path">Workspace Path</string>
+</resources>

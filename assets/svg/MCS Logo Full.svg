@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108">
+  <defs>
+    <radialGradient id="ideGradient" cx="50%" cy="50%" r="75%" fx="50%" fy="50%">
+      <stop offset="0%" stop-color="#1A1A2E" />
+      <stop offset="50%" stop-color="#0F1020" />
+      <stop offset="100%" stop-color="#080C16" />
+    </radialGradient>
+  </defs>
+
+  <!-- Hintergrund -->
+  <rect width="108" height="108" fill="url(#ideGradient)" />
+
+  <g transform="translate(54, 54)">
+    <!-- Die 4 farbigen Karten -->
+    <path d="M-25,-25 L5,-35 L15,-5 L-15,5 Z" fill="#00D2C8" />
+    <path d="M25,-25 L35,5 L5,15 L-5,-15 Z" fill="#0082FF" />
+    <path d="M25,25 L-5,35 L-15,5 L15,-5 Z" fill="#32D25A" />
+    <path d="M-25,25 L-35,-5 L-5,-15 L5,15 Z" fill="#8232FF" />
+
+    <!-- Zentrales Quadrat -->
+    <path d="M-14,-14 L14,-14 L14,14 L-14,14 Z" fill="#16162A" />
+
+    <!-- Code Symbol </> (Etwas nach oben versetzt für Platz) -->
+    <g fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" transform="translate(0, -2)">
+      <path d="M-8,-4 L-11,0 L-8,4" />
+      <path d="M8,-4 L11,0 L8,4" />
+      <path d="M2,-6 L-2,6" />
+    </g>
+
+    <!-- Schriftzug MCS (Jetzt als fette, gefüllte Vektoren für bessere Sichtbarkeit) -->
+    <g fill="#FFFFFF" transform="translate(0, 8)">
+      <!-- M -->
+      <path d="M-9.5,0 L-7.5,0 L-5.5,3 L-3.5,0 L-1.5,0 L-1.5,6 L-3.5,6 L-3.5,2.5 L-5.5,5.5 L-7.5,2.5 L-7.5,6 L-9.5,6 Z" />
+      <!-- C -->
+      <path d="M1,0 L6,0 L6,1.5 L2.8,1.5 L2.8,4.5 L6,4.5 L6,6 L1,6 Z" />
+      <!-- S -->
+      <path d="M8,0 L13,0 L13,1.5 L9.8,1.5 L9.8,2.2 L13,2.2 L13,6 L8,6 L8,4.5 L11.2,4.5 L11.2,3.8 L8,3.8 Z" />
+    </g>
+  </g>
+</svg>
