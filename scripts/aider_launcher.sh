@@ -1,3 +1,4 @@
+```bash
 #!/bin/bash
 
 # --- FARBEN ---
@@ -10,7 +11,7 @@ SECRET_ANTHROPIC="/data/data/jkas.androidpe/files/home/.anthropic_api_key.secret
 SECRET_OPENAI="/data/data/jkas.androidpe/files/home/.openai_api_key.secrets"
 SECRET_DEEPSEEK="/data/data/jkas.androidpe/files/home/.deepseek_api_key.secrets"
 
-# --- GLOBALE STATUS-VARIABLEN ---
+# --- GLOBALE STATUS-VARIABLEN (Start-Konfiguration) ---
 SUBTREE_MODE=false
 
 # Arrays für Chat-Modes
@@ -37,30 +38,35 @@ load_secrets() {
 # ==========================================
 run_aider() {
     local model=$1
-    local mode_flag=$2
+    local flags=$2
     
-    echo -e "${G}Starte Aider mit Modell: ${W}$model ${mode_flag}${NC}"
+    echo -e "\n${G}Starte Aider mit Modell: ${W}$model ${Y}$flags${NC}...\n"
     source "$VENV_PATH_VAL/bin/activate"
+    export AIDER_MODEL="$model"
     
-    if [ -z "$mode_flag" ]; then
+    if [ -z "$flags" ]; then
         aider --model "$model"
     else
-        # mode_flag wird absichtlich nicht in Anführungszeichen gesetzt, 
-        # damit "--architect --subtree-only" als zwei Argumente erkannt werden
-        aider --model "$model" $mode_flag
+        # Flags absichtlich nicht in Anführungszeichen, damit sie aufgespalten werden
+        aider --model "$model" $flags
     fi
     
-    echo -e "${Y}Aider beendet. Drücke Enter, um ins Menü zurückzukehren.${NC}"
+    echo -e "\n${Y}Aider beendet. Drücke Enter, um ins Menü zurückzukehren.${NC}"
     read
 }
 
 choose_run_mode() {
     local model=$1
-    local default_mode=$2
+    local default_arg=$2
     
-    # Setze den anfänglichen Modus basierend auf der Empfehlung des Skripts
-    if [ "$default_mode" == "--architect" ]; then
+    local extra_flags=""
+    
+    # Initiale Zuweisung basierend auf Parametern aus den Menüs
+    if [ "$default_arg" == "--architect" ]; then
         CHAT_MODE_IDX=2
+    elif [ "$default_arg" == "--browser" ]; then
+        CHAT_MODE_IDX=0
+        extra_flags="--browser"
     else
         CHAT_MODE_IDX=0
     fi
@@ -71,6 +77,9 @@ choose_run_mode() {
         echo -e "${W}${B}         START-KONFIGURATION                       ${NC}"
         echo -e "${C}======================================================${NC}"
         echo -e "Modell: ${G}$model${NC}"
+        if [ -n "$extra_flags" ]; then
+            echo -e "Spezial-Flags: ${Y}$extra_flags${NC}"
+        fi
         echo -e "------------------------------------------------------"
         
         local current_mode="${CHAT_MODES[$CHAT_MODE_IDX]}"
@@ -92,15 +101,15 @@ choose_run_mode() {
         case $config_choice in
             1)
                 # Flag-String dynamisch zusammenbauen
-                local flags=""
+                local final_flags="$extra_flags"
                 if [ "$current_mode" != "auto" ]; then
-                    flags="--$current_mode"
+                    final_flags="$final_flags --$current_mode"
                 fi
                 if [ "$SUBTREE_MODE" = true ]; then
-                    flags="$flags --subtree-only"
+                    final_flags="$final_flags --subtree-only"
                 fi
                 
-                run_aider "$model" "$flags"
+                run_aider "$model" "$final_flags"
                 return
                 ;;
             2)
@@ -126,259 +135,149 @@ choose_run_mode() {
 }
 
 # ==========================================
-# MODELLE AUFLISTEN LOGIK (ALLGEMEIN)
+# SUB-MENÜS FÜR GEMINI
 # ==========================================
-list_aider_models() {
-    local search_term=$1
-    echo -e "\n${C}Lade verfügbare Modelle für: ${W}${search_term}${NC}"
-    source "$VENV_PATH_VAL/bin/activate"
-    
-    local raw=$(aider --models "$search_term" 2>/dev/null)
-    
-    # Basis-Säuberung (Spiegelstriche und Leerzeichen weg)
-    local cleaned=$(echo "$raw" | sed 's/^[ \t]*-[ \t]*//' | sed 's/^[ \t]*//' | grep -v '^\s*$')
-    
-    # Strikter Filter für Gemini: Wir wollen kein OCI, kein Vertex_AI und keine halben Wörter
-    if [[ "$search_term" == "gemini/" || "$search_term" == "gemini" ]]; then
-        cleaned=$(echo "$cleaned" | grep -i '^gemini/gemini')
-    fi
-    
-    # ABSTEIGEND sortieren (-rV)
-    echo "$cleaned" | sort -rV | uniq | while IFS= read -r line; do
-        if [ -n "$line" ]; then
-            echo -e " - ${W}${line}${NC}"
-        fi
-    done
-
-    echo -e "\n${Y}Suche beendet. Drücke Enter, um zurückzukehren.${NC}"
-    read
-}
-
-menu_list_models() {
-    while true; do
-        clear
-        echo -e "${M}======================================================${NC}"
-        echo -e "${W}${B}         MODELLE AUFLISTEN                         ${NC}"
-        echo -e "${M}======================================================${NC}"
-        echo -e "${W}1) List OpenAI Models${NC}"
-        echo -e "${G}2) List Anthropic Models${NC}"
-        echo -e "${C}3) List Gemini Models${NC}"
-        echo -e "${Y}4) List Deepseek Models${NC}"
-        echo -e "------------------------------------------------------"
-        echo -e "${R}0) Zurück${NC}"
-        read -p "Wahl: " list_choice
-        case $list_choice in
-            1) list_aider_models "openai/" ;;
-            2) list_aider_models "anthropic/" ;;
-            3) list_aider_models "gemini/" ;;
-            4) list_aider_models "deepseek/" ;;
-            0) return ;;
-            *) echo -e "${R}Ungültige Eingabe.${NC}"; sleep 1 ;;
-        esac
-    done
-}
-
-# ==========================================
-# DYNAMISCHE MENÜ-GENERIERUNG & PARSING
-# ==========================================
-
-get_description() {
-    local m=$1
-    
-    # --- GEMINI PRO MODELLE ---
-    if [[ "$m" == *"gemini-3"* && "$m" == *"pro"* ]]; then echo "(Next-Gen Pro Modell)"
-    elif [[ "$m" == *"gemini-2.5-pro"* ]]; then echo "(Brandneues Pro Modell - Höchste Logik)"
-    elif [[ "$m" == *"gemini-2.0-pro"* ]]; then echo "(Experimentell: Höchste Intelligenz)"
-    elif [[ "$m" == *"gemini-1.5-pro"* ]]; then echo "(2M Tokens - Stabil für riesige Refactorings)"
-    
-    # --- GEMINI FLASH SPEZIAL-VARIANTEN ---
-    elif [[ "$m" == *"thinking"* ]]; then echo "(Deep Reasoning für Code)"
-    elif [[ "$m" == *"lite"* ]]; then echo "(Ressourcenschonend & Superschnell)"
-    elif [[ "$m" == *"8b"* ]]; then echo "(Blitzschnell, für kleine Tasks)"
-    elif [[ "$m" == *"native-audio"* ]]; then echo "(Audio-Fokusiertes Modell)"
-    
-    # --- GEMINI FLASH STANDARD ---
-    elif [[ "$m" == *"gemini-3"* && "$m" == *"flash"* ]]; then echo "(Next-Gen Flash Modell)"
-    elif [[ "$m" == *"gemini-2.5-flash"* ]]; then echo "(Brandneuer Flash-Standard)"
-    elif [[ "$m" == *"gemini-2.0-flash"* ]]; then echo "(Der schnelle & smarte Standard)"
-    elif [[ "$m" == *"gemini-1.5-flash"* ]]; then echo "(1M/2M Tokens - Extrem schnell)"
-    
-    # --- OPENAI ---
-    elif [[ "$m" == *"gpt-4o-mini"* ]]; then echo "(Schnell & Günstig)"
-    elif [[ "$m" == *"gpt-4o"* ]]; then echo "(Bestes Allround-Modell)"
-    elif [[ "$m" == *"o3-mini"* ]]; then echo "(Neuestes Coding Reasoning)"
-    elif [[ "$m" == *"o1-mini"* ]]; then echo "(Mini Reasoning für Code)"
-    elif [[ "$m" == *"o1-preview"* ]]; then echo "(Älteres Reasoning)"
-    elif [[ "$m" == *"o1"* ]]; then echo "(Deep Reasoning - Finale Version)"
-    elif [[ "$m" == *"gpt-4-turbo"* ]]; then echo "(Bewährtes starkes Modell)"
-    
-    # --- DEEPSEEK ---
-    elif [[ "$m" == *"deepseek-reasoner"* || "$m" == *"r1"* ]]; then echo "(Das revolutionäre Deep-Thinking Modell!)"
-    elif [[ "$m" == *"deepseek-chat"* || "$m" == *"v3"* ]]; then echo "(Pfeilschnell und extrem smart für Code)"
-    elif [[ "$m" == *"deepseek-coder"* ]]; then echo "(Älteres Code Modell)"
-    
-    # --- CLAUDE ---
-    elif [[ "$m" == *"claude-3-7-sonnet"* ]]; then echo "(BRANDNEU: Absoluter Coding-König!)"
-    elif [[ "$m" == *"claude-3-5-sonnet"* ]]; then echo "(Der bewährte Vorgänger)"
-    elif [[ "$m" == *"haiku"* ]]; then echo "(Schnell & Günstig)"
-    elif [[ "$m" == *"opus"* ]]; then echo "(Creative Reasoning)"
-    
-    # --- FALLBACK ---
-    else echo "(Modell der aktuellen Generation)"
-    fi
-}
-
-get_default_mode() {
-    local m=$1
-    if [[ "$m" == *"pro"* || "$m" == *"gpt-4o"* || "$m" == *"sonnet"* || "$m" == *"opus"* || "$m" == *"deepseek-chat"* ]]; then
-        echo "--architect"
-    else
-        echo ""
-    fi
-}
-
-show_dynamic_menu() {
-    local search_q=$1
-    local filter_re=$2
-    local title=$3
-
-    while true; do
-        clear
-        echo -e "${C}======================================================${NC}"
-        echo -e "${W}${B}         ${title}                            ${NC}"
-        echo -e "${C}======================================================${NC}"
-        echo -e "${Y}Frage API ab, säubere Liste und sortiere Versionen absteigend...${NC}"
-
-        source "$VENV_PATH_VAL/bin/activate" 2>/dev/null
-        
-        local raw=""
-        if [ "$search_q" == "openai" ]; then
-            raw=$( (aider --models "gpt"; aider --models "o1"; aider --models "o3") 2>/dev/null )
-            # INJEKTION: Garantiert, dass Standard-Modelle nie fehlen
-            raw+=$'\ngpt-4o\ngpt-4o-mini\no1\no3-mini\no1-preview\no1-mini'
-        elif [ "$search_q" == "gemini" ]; then
-            raw=$(aider --models "$search_q" 2>/dev/null)
-            # INJEKTION: Garantiert, dass 1.5, 2.0, 2.5 etc. IMMER in der Liste sind
-            raw+=$'\ngemini/gemini-1.5-flash-002\ngemini/gemini-1.5-flash-8b\ngemini/gemini-1.5-pro-002\ngemini/gemini-2.0-flash\ngemini/gemini-2.0-flash-thinking-exp-01-21\ngemini/gemini-2.0-pro-exp-02-05\ngemini/gemini-2.5-flash\ngemini/gemini-2.5-pro\ngemini/gemini-3.0-flash\ngemini/gemini-3.1-flash'
-        elif [ "$search_q" == "claude" ]; then
-            raw=$(aider --models "$search_q" 2>/dev/null)
-            raw+=$'\nclaude-3-7-sonnet-20250219\nclaude-3-5-sonnet-20241022\nclaude-3-5-haiku-20241022\nclaude-3-opus-20240229'
-        elif [ "$search_q" == "deepseek" ]; then
-            raw=$(aider --models "$search_q" 2>/dev/null)
-            raw+=$'\ndeepseek/deepseek-reasoner\ndeepseek/deepseek-chat\ndeepseek/deepseek-coder'
-        else
-            raw=$(aider --models "$search_q" 2>/dev/null)
-        fi
-        
-        # 1. Entferne Spiegelstriche (- ) und führende Leerzeichen
-        local cleaned=$(echo "$raw" | sed 's/^[ \t]*-[ \t]*//' | sed 's/^[ \t]*//' | grep -v '^\s*$')
-        
-        # 2. Anbieter-spezifische STRICKTE Bereinigung
-        if [ "$search_q" == "gemini" ]; then
-            # Nur saubere Google AI Studio Modelle (gemini/gemini-...), filtert OCI, Vertex_AI, etc. heraus
-            cleaned=$(echo "$cleaned" | grep -iE '^gemini/gemini')
-        fi
-        
-        # 3. Anwenden des übergebenen Filters (z.B. "flash" oder "pro") 
-        #    UND saubere Version-Sortierung ABSTEIGEND (-rV), Duplikate entfernen (uniq)
-        local parsed_models=$(echo "$cleaned" | grep -iE "$filter_re" | sort -rV | uniq)
-        
-        local models=()
-        while IFS= read -r line; do
-            local clean_line=$(echo "$line" | tr -d '\r' | xargs)
-            if [ -n "$clean_line" ]; then
-                models+=("$clean_line")
-            fi
-        done <<< "$parsed_models"
-
-        clear
-        echo -e "${C}======================================================${NC}"
-        echo -e "${W}${B}         ${title}                            ${NC}"
-        echo -e "${C}======================================================${NC}"
-
-        if [ ${#models[@]} -eq 0 ]; then
-            echo -e "${R}Keine Modelle gefunden!${NC}"
-            echo -e "Aider konnte keine Modelle für '$search_q' (Filter: '$filter_re') finden."
-            echo -e "------------------------------------------------------"
-            echo -e "${R}0) Zurück${NC}"
-            read -p "Wahl: " choice
-            if [[ "$choice" == "0" ]]; then return; fi
-            continue
-        fi
-
-        local i=1
-        for m in "${models[@]}"; do
-            local desc=$(get_description "$m")
-            # Formatierung: Farbige Nummer, weißer Name, gelbe dynamische Beschreibung
-            echo -e "${C}${i}) ${W}${m}${NC} ${Y}${desc}${NC}"
-            ((i++))
-        done
-        echo -e "------------------------------------------------------"
-        echo -e "${R}0) Zurück${NC}"
-        
-        read -p "Wahl: " choice
-        
-        if [[ "$choice" == "0" ]]; then
-            return
-        elif [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "${#models[@]}" ]; then
-            local selected_index=$((choice - 1))
-            local selected_model="${models[$selected_index]}"
-            local default_mode=$(get_default_mode "$selected_model")
-            choose_run_mode "$selected_model" "$default_mode"
-        else
-            echo -e "${R}Ungültige Eingabe.${NC}"; sleep 1
-        fi
-    done
-}
-
-# ==========================================
-# UNTERMENÜS FÜR GEMINI (PRO / FLASH)
-# ==========================================
-
-menu_gemini_pro() {
-    show_dynamic_menu "gemini" "pro" "GEMINI PRO MODELLE"
-}
 
 menu_gemini_flash() {
-    show_dynamic_menu "gemini" "flash" "GEMINI FLASH MODELLE"
+    while true; do
+        clear
+        echo -e "${C}=== GEMINI FLASH MODELLE (High Speed) ===${NC}"
+        local mods=(
+            "Gemini 3.1 Flash Lite|gemini/gemini-3.1-flash-lite-preview|Lite Preview"
+            "Gemini 3.1 Flash Live|gemini/gemini-3.1-flash-live-preview|Live Interaction"
+            "Gemini 2.5 Flash (Performance)|gemini/gemini-2.5-flash|Recommended for Speed"
+            "Gemini 2.5 Flash Lite|gemini/gemini-2.5-flash-lite|Stable Lite"
+            "Gemini 2.5 Flash Lite (06-17)|gemini/gemini-2.5-flash-lite-preview-06-17|Build 06-17"
+            "Gemini 2.5 Flash Lite (09-25)|gemini/gemini-2.5-flash-lite-preview-09-2025|Build 09-25"
+            "Gemini 2.5 Flash Preview (09-25)|gemini/gemini-2.5-flash-preview-09-2025|Preview"
+            "Gemini 2.5 Computer Use|gemini/gemini-2.5-computer-use-preview-10-2025|Vision/UI Control"
+            "Gemini 2.5 Flash Native Audio|gemini/gemini-2.5-flash-native-audio-latest|Audio Input"
+            "Gemini 2.0 Flash|gemini/gemini-2.0-flash|Stable 2.0"
+            "Gemini 2.0 Flash Lite|gemini/gemini-2.0-flash-lite|Lite 2.0"
+            "Gemini 1.5 Flash|gemini/gemini-1.5-flash|Legacy Stable"
+        )
+        for i in "${!mods[@]}"; do
+            IFS='|' read -r name id desc <<< "${mods[$i]}"
+            printf "${W}%2d)${NC} ${C}%-32s${NC} %s\n" "$((i+1))" "$name" "$desc"
+        done
+        echo -e "------------------------------------------------------"
+        echo -e "${Y}0) Zurück${NC}"
+        read -p "Auswahl: " c
+        [[ "$c" == "0" ]] && return
+        if [[ "$c" -ge 1 && "$c" -le "${#mods[@]}" ]]; then
+            IFS='|' read -r name id desc <<< "${mods[$((c-1))]}"
+            local f=""
+            [[ "$id" == *"computer-use"* ]] && f="--browser"
+            choose_run_mode "$id" "$f"
+        fi
+    done
+}
+
+menu_gemini_pro() {
+    while true; do
+        clear
+        echo -e "${M}=== GEMINI PRO MODELLE (Intelligence Focus) ===${NC}"
+        local mods=(
+            "Gemini 3.1 Pro (Latest Preview)|gemini/gemini-3.1-pro-preview|Top Intelligence"
+            "Gemini 3.1 Pro Tools|gemini/gemini-3.1-pro-preview-customtools|Function Calling"
+            "Gemini 2.5 Pro (Kotlin Special)|gemini/gemini-2.5-pro|Best for Kotlin"
+            "Gemini 2.5 Pro Exp (03-25)|gemini/gemini-2.5-pro-exp-03-25|Experimental"
+            "Gemini 2.5 Pro Pre (05-06)|gemini/gemini-2.5-pro-preview-05-06|Build 05-06"
+            "Gemini 2.5 Pro Pre (06-05)|gemini/gemini-2.5-pro-preview-06-05|Build 06-05"
+            "Gemini 2.5 Pro TTS|gemini/gemini-2.5-pro-preview-tts|Speech Synth"
+            "Gemini 2.0 Pro Exp|gemini/gemini-2.0-pro-exp-02-05|Logic Specialist"
+            "Gemini 1.5 Pro|gemini/gemini-1.5-pro|Large Context"
+            "LearnLM 1.5 Pro Exp|gemini/learnlm-1.5-pro-experimental|Educational"
+        )
+        for i in "${!mods[@]}"; do
+            IFS='|' read -r name id desc <<< "${mods[$i]}"
+            printf "${W}%2d)${NC} ${M}%-32s${NC} %s\n" "$((i+1))" "$name" "$desc"
+        done
+        echo -e "------------------------------------------------------"
+        echo -e "${Y}0) Zurück${NC}"
+        read -p "Auswahl: " c
+        [[ "$c" == "0" ]] && return
+        if [[ "$c" -ge 1 && "$c" -le "${#mods[@]}" ]]; then
+            IFS='|' read -r name id desc <<< "${mods[$((c-1))]}"
+            choose_run_mode "$id" "--architect"
+        fi
+    done
 }
 
 menu_gemini() {
     while true; do
         clear
-        echo -e "${C}======================================================${NC}"
-        echo -e "${W}${B}         GEMINI MODELLE (Google)                   ${NC}"
-        echo -e "${C}======================================================${NC}"
-        echo -e "Tipp: Für das große Refactoring nutze 2.5 Flash oder 1.5 Pro!"
-        echo ""
-        echo -e "${C}1) Gemini Pro Modelle${NC}   (Für komplexe Aufgaben & tiefes Verständnis)"
-        echo -e "${C}2) Gemini Flash Modelle${NC} (Für riesigen Kontext & maximale Geschwindigkeit)"
+        echo -e "${C}=== PROVIDER: GEMINI ===${NC}"
+        echo -e "${C}1) Flash Modelle${NC} (Schnell & Günstig)"
+        echo -e "${M}2) Pro Modelle${NC} (Intelligent & Kotlin-Spezialisten)"
         echo -e "------------------------------------------------------"
-        echo -e "${R}0) Zurück${NC}"
-        read -p "Wahl: " gem
-        case $gem in
-            1) menu_gemini_pro ;;
-            2) menu_gemini_flash ;;
+        echo -e "${Y}0) Zurück${NC}"
+        read -p "Wahl: " g
+        case $g in
+            1) menu_gemini_flash ;;
+            2) menu_gemini_pro ;;
             0) return ;;
-            *) echo -e "${R}Ungültige Eingabe.${NC}"; sleep 1 ;;
         esac
     done
 }
 
 # ==========================================
-# WEITERE UNTERMENÜS FÜR MODELLE ZUM STARTEN
+# PROVIDER MENÜS
 # ==========================================
 
 menu_openai() {
-    show_dynamic_menu "openai" "gpt|o1|o3" "OPENAI MODELLE"
+    while true; do
+        clear
+        echo -e "${W}=== PROVIDER: OPENAI ===${NC}"
+        echo -e "${W}1) o3-mini${NC} (Reasoning Focus)"
+        echo -e "${W}2) GPT-4o${NC} (Allrounder)"
+        echo -e "${W}3) GPT-4o-mini${NC} (Fast)"
+        echo -e "------------------------------------------------------"
+        echo -e "${Y}0) Zurück${NC}"
+        read -p "Wahl: " o
+        case $o in
+            1) choose_run_mode "o3-mini" "--architect" ;;
+            2) choose_run_mode "gpt-4o" "" ;;
+            3) choose_run_mode "gpt-4o-mini" "" ;;
+            0) return ;;
+        esac
+    done
 }
 
 menu_deepseek() {
-    show_dynamic_menu "deepseek" "deepseek" "DEEPSEEK MODELLE"
+    while true; do
+        clear
+        echo -e "${Y}=== PROVIDER: DEEPSEEK ===${NC}"
+        echo -e "${Y}1) DeepSeek V3${NC} (Chat/Coding)"
+        echo -e "${Y}2) DeepSeek R1${NC} (Reasoning/Thinking)"
+        echo -e "------------------------------------------------------"
+        echo -e "${Y}0) Zurück${NC}"
+        read -p "Wahl: " d
+        case $d in
+            1) choose_run_mode "deepseek/deepseek-chat" "" ;;
+            2) choose_run_mode "deepseek/deepseek-reasoner" "--architect" ;;
+            0) return ;;
+        esac
+    done
 }
 
 menu_claude() {
-    show_dynamic_menu "claude" "claude" "CLAUDE MODELLE"
+    while true; do
+        clear
+        echo -e "${G}=== PROVIDER: CLAUDE (ANTHROPIC) ===${NC}"
+        echo -e "${G}1) Claude 3.5 Sonnet${NC} (Best Coding Performance)"
+        echo -e "${G}2) Claude 3.5 Haiku${NC} (Fast)"
+        echo -e "${G}3) Claude 3 Opus${NC} (Creative Reasoning)"
+        echo -e "------------------------------------------------------"
+        echo -e "${Y}0) Zurück${NC}"
+        read -p "Wahl: " cl
+        case $cl in
+            1) choose_run_mode "claude-3-5-sonnet-20241022" "--architect" ;;
+            2) choose_run_mode "claude-3-5-haiku-20241022" "" ;;
+            3) choose_run_mode "claude-3-opus-20240229" "--architect" ;;
+            0) return ;;
+        esac
+    done
 }
 
 # ==========================================
@@ -392,22 +291,23 @@ while true; do
     echo -e "${C}======================================================${NC}"
     load_secrets
 
-    echo -e "${C}1) Gemini${NC}    (inkl. 2.5 Flash & 1.5 Pro)"
-    echo -e "${W}2) OpenAI${NC}    (inkl. o3-mini & GPT-4o)"
-    echo -e "${Y}3) DeepSeek${NC}  (inkl. DeepSeek R1)"
-    echo -e "${G}4) Claude${NC}    (inkl. Claude 3.7 Sonnet)"
+    echo -e "${C}1) Gemini${NC}"
+    echo -e "${W}2) OpenAI${NC}"
+    echo -e "${Y}3) DeepSeek${NC}"
+    echo -e "${G}4) Claude${NC}"
     echo -e "------------------------------------------------------"
-    echo -e "${M}5) List Models${NC} (Zeigt verfügbare Modelle der API)"
-    echo -e "------------------------------------------------------"
-    echo -e "${R}6) Beenden${NC}"
-    read -p "Wahl: " main
-    case $main in
+    echo -e "${R}5) Beenden${NC}"
+    echo ""
+    read -p "Provider wählen: " main_choice
+
+    case $main_choice in
         1) menu_gemini ;;
         2) menu_openai ;;
         3) menu_deepseek ;;
         4) menu_claude ;;
-        5) menu_list_models ;;
-        6|0) echo -e "${G}Tschüss!${NC}"; exit 0 ;;
-        *) echo -e "${R}Ungültige Eingabe.${NC}"; sleep 1 ;;
+        5) exit 0 ;;
+        *) echo -e "${R}Ungültige Eingabe!${NC}"; sleep 1 ;;
     esac
 done
+
+```
